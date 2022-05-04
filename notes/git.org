@@ -1,3 +1,15 @@
 #+TITLE: git
 
 #+AUTHOR: EricSun
+* 配置
+1. git忽略mode的配置
+#+BEGIN_SRC shell
+  git config --add core.filemode false
+#+END_SRC
+
+2. git忽略相关文件
+   可以将文件或路径加入.git/info/exclude文件。该文件具有与任何.gitignore文件相同的配置格式。
+   如果撤销了更改，则需要再编辑忽略模式之后运行如下命令
+#+BEGIN_SRC shell
+git update-index --assume-unchanged <file-list>
+#+END_SRC
