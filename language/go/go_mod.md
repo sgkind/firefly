@@ -1,0 +1,116 @@
+go mod相关
+==========
+### go modules
+是 golang 1.11 新加的特性。现在1.12 已经发布了，是时候用起来了。Modules官方定义为：
+> 模块是相关Go包的集合。modules是源代码交换和版本控制的单元。 go命令直接支持使用modules，包括记录和解析对其他模块的依赖性。modules替换旧的基于GOPATH的方法来指定在给定构建中使用哪些源文件。
+
+### 优势
+使用go mod管理项目，就不需要非得把项目放到GOPATH制定目录下，可以在磁盘的任何位置新建一个项目
+
+### 启用modules
+1. go版本为1.11及以上
+2. 设置环境变量GO111MODULE
+
+GO111MODULE 有三个值：off, on和auto（默认值）:
+* off:  go命令行将不会支持module功能，寻找依赖包的方式将会沿用旧版本那种通过vendor目录或者GOPATH模式来查找
+* on: go命令行会使用modules，而一点也不会去GOPATH目录下查找
+* auto: 默认值，go命令行将会根据当前目录来决定是否启用module功能，这种情况可以分为以下两种情形：
+   * 当前目录在GOPATH/src之外且该目录包含go.mod文件
+   * 当前文件在包含go.mod文件的目录下面
+   
+> 当modules 功能启用时，依赖包的存放位置变更为$GOPATH/pkg，允许同一个package多个版本并存，且多个项目可以共享缓存的 module。
+
+### go mod命令
+golang提供了go mod命令来管理包
+
+
+命令 | 说明
+---|---
+download | 下载依赖包到本地缓存
+edit | 编辑go.mod文件
+graph | 打印模块依赖图
+init | 在当前目录初始化mod
+tidy | 拉取缺少的模块，移除不用的模块
+vendor | 将依赖复制到vendor下
+verify | 验证依赖是否正确
+why | explain why packages or modules are needed
+
+### go.mod语法
+go.mod提供了module、require、replace和exclude四个语句：
+* module语句指定包的名字(路径)
+* require语句指定依赖项模块
+* replace语句替换依赖项模块
+* exclude语句可以忽略依赖性模块
+
+由于某些众所周知的原因，并不是所有的package都能下载成功，比如：`golang.org `下的包.module可以通过在go.mod文件中使用的replace指令替换github上对应的库。
+```shell
+replace(
+  golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a => github.com/golang/crypto v0.0.0-20190313024323-a1f597ede03a
+)
+```
+或者
+```shell
+replace golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a => github.com/golang/crypto v0.0.0-20190313024323-a1f597ede03a
+```
+
+### 新建项目
+1. 新建目录
+```shell
+# mkdir project
+```
+
+2. 切换到新建的目录
+```shell
+cd project
+```
+
+3. 初始化
+```shell
+go mod init project
+```
+
+> go.mod文件一旦创建后，它的内容将会被go toolchain全面掌控。go toolchain会在各类命令行执行时，比如go get、go build和go mod等修改和维护go.mod文件。
+
+> go module安装package的原则是先拉取最新的release tag, 若无tag则拉取最新的commit，详见[Modules官方介绍](https://github.com/golang/go/wiki/Modules)
+
+4. 添加文件
+
+    如果依赖本项目中的包，则包的路径从go.mod所在的目录开始，注：第一个路径为go.mod中的module名
+
+5. 编译或运行
+
+    编译或运行程序时，go mod会自动查找依赖并自动下载。并且go会自动生成一个go.sum文件来记录dependency tree。
+
+### 升级
+1. 可以使用go list命令来检查可以升级的package
+```shell
+# go list -m -u all
+```
+2. 使用go get会在升级后将新的依赖版本更新到go.mod中
+```shell
+go get -u need-upgrade-package
+```
+3. 也可以使用`go get -u`升级所有依赖
+* 运行 go get -u 将会升级到最新的次要版本或者修订版本(x.y.z, z是修订版本号， y是次要版本号)
+* 运行 go get -u=patch 将会升级到最新的修订版本
+* 运行 go get package@version 将会升级到指定的版本号version
+* 运行go get如果有版本的更改，那么go.mod文件也会更改
+
+参考: [Go mod 使用](https://segmentfault.com/a/1190000018536993)
+
+
+## go mod download不能下载golang.org/x时的解决办法
+Go 1.11版本开始，新增了GOPROXY环境变量。如果设置了该变量，下载源代码时将会通过这个环境变量设置的代理地址，而不再是以前的直接从代码库下载。
+
+https://goproxy.io/这个开源项目提供了公用的代理服务https://goproxy.io.
+
+只需要设置该环境变量即可正常下载被墙的源码包
+```shell
+# Enable the go modules feature
+export GO111MODULE=on
+# Set the GOPROXY environment variable
+export GOPROXY=https://goproxy.io
+```
+
+goland中需要设置
+Go->Go Modules(vgo) -> Proxy https://goproxy.io
