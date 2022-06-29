@@ -1,0 +1,12 @@
+* 转型
+C++提供四种新型转型：
+const_cast<T>(expression)
+dynamic_cast<T>(expression)
+reinterpret_cast<T>(expression)
+static_cast<T>(expression)
+
+作用
+const_cast通常被用来将对象的常量性移除(cast away the constness)。它也是唯一有此能力的C++转型操作符。
+dynamic_cast主要用来执行“安全向下转型”(safe downcasting)，也就是用来决定某对象是否归属继承体系中的某个类型。它是唯一无法由旧式语法执行的动作，也是唯一可能耗费重大运行成本的转型动作（稍后细谈）。
+reinterpret_cast意图执行低级转型，实际动作（及结果）可能取决于编译器，这也就表示它不可移植。例如将一个pointer to int转型为一个int。这一类转型在低级代码以外很少见。本书只使用一次，那就是在讨论如何针对原始内存(raw memory)写出一个调试用的分配器(debugging allocator)时。
+static_cast用来强迫隐式转换
