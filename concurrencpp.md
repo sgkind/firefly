@@ -213,6 +213,27 @@ timer自带执行器executor，timer_queue保存timer，并检查到期的定时
 
 2. 定时检查线程在没用定时器时会销毁，新添加timer后如果没有检查线程则创建
 
+## thread
+对std::thread的封装，可以设置线程名
+类图
+```plantuml
+class thread {
+  - std::thread m_thread
+  - static void set_name(std::string_view name) noexcept
+
+  + thread() noexcept = default
+  + thread(thread&&) noexcept = default
+  + thread(std::string name, callable_type&& callable)
+  + thread& operator=(thread&& rhs) noexcept = default
+  + std::thread::id get_id() const noexcept
+  + static std::uintptr_t get_current_virtual_id() noexcept
+  + bool joinable() const noexcept
+  + void join()
+
+  + static size_t hardware_concurrency() noexcept
+}
+```
+
 ## executor
 
 类图
@@ -253,3 +274,83 @@ class derivable_executor {
 
 executor <|-- derivable_executor
 ```
+
+### inline_executor
+inline_executor不创建单独的执行线程，任务在添加到执行器时在添加任务的线程上执行
+
+类图
+```plantuml
+class inline_executor {
+  - std::atomic_bool m_abort
+
+  - void throw_if_aborted() const
+
+  + inline_executor() noexcept
+  + void enqueue(task task) override
+  + void enqueue(std::span<task> tasks) override
+  + int max_concurrency_level() const noexcept override
+  + int shutdown() override
+  + bool shutdown_requested() const override
+}
+
+class executor{}
+
+executor <|-- inline_executor
+```
+
+inline_executor中没有单独的执行线程，任务在enquene时在线程上执行
+
+```
+void enqueue(task task) override {
+  throw_if_aborted();
+  task();
+}
+
+void enqueue(std::span<task> tasks) override {
+  throw_if_aborted();
+  for (auto& task : tasks) {
+    task();
+  }
+}
+```
+
+### thread_executor
+thread_executor每创建一个任务就创建一个线程执行此任务
+
+类图
+```plantuml
+class thread_executor {
+  - std::mutex m_lock
+  - std::list<details::thread> m_workers
+  - std::condition_variable m_condition
+  - std::list<thread> m_last_retired
+  - bool m_abort
+  - std::atomic_bool m_atomic_abort
+
+  - void enqueue_impl(std::unique_lock<std::mutex>& lock, task& task)
+  - void retire_worker(std::list<details::thread>::iterator it)
+
+  + thread_executor()
+  + ~thread_executor() noexcept
+
+  + void enqueue(task task) override
+  + void enqueue(std::span<task> tasks) override
+  + int max_concurrency_level() const noexcept override
+  + bool shutdown_requested() const override
+  + void shutdown() override
+}
+
+class derivable_executor {}
+
+class executor{}
+
+executor <|-- derivable_executor
+derivable_executor <|-- thread_executor
+```
+
+其中部分字段的含义
+* m_lock: 锁
+* m_workers: 工作线程
+* m_last_retired: 已经结束的线程
+* m_abort: 执行器调用shutdown，m_abort被设置为true，但是此时会等待线程执行结束
+* m_atomic_abort: 执行器调用shutdown后m_atomic_abort设置为true
