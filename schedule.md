@@ -1,6 +1,37 @@
 # linux调度
 
+Linux中就绪态和运行态对应的都是TASK_RUNNING标志位，就绪态表示进程正处在队列中，尚未被调度；运行态则表示进程正在cpu上运行。
+
+## Linux调度器
+内核默认提供了5个调度器，使用struct sched_class来对调度器进行抽象:
+
+### Stop调度器
+stop_sched_class 优先级最高的调度类，可以抢占其他所有进程，不能被其他进程抢占。
+
+### Deadline调度器
+dl_sched_class 使用红黑树，把进程按照绝对截止期限进程排序，选择最小进程进行调度运行
+
+### RT调度器
+rt_sched_class 实时调度器，为每个优先级维护一个队列
+
+### CFS调度器
+cfs_sched_class 完全公平调度器，采用完全公平调度算法，引入虚拟运行时间概念
+
+### IDLE-Task调度器
+idle_sched_class 空闲调度器，每个CPU都会有一个idle线程，当没有其他进程可以调度时，调度运行idel线程
+
+## 调度策略
 ### SCHED_NORMAL
+普通进程调度策略，使task选择CFS调度器来调度运行
+
+### SCHED_BATCH
+普通进程调度策略，批量处理，提供吞吐量，使task选择CFS调度器来调度运行
+
+### SCHED_IDLE
+普通进程调度策略，使task以最低优先级选择CFS调度器来调度运行
+
+### SCHED_DEADLINE
+限期进程调度策略，使task选择Deadline调度器来调度运行
 
 ### SCHED_FIFO
 一个先入先出的实时过程。当调度器将cpu分配给进程时，它会将进程描述符保留在运行队列列表中的当前位置。如果没有其他更高优先级的实时进程可以运行，那么该进程将继续使用CPU，即使其他具有相同优先级的实时进程也可以运行。
