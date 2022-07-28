@@ -354,3 +354,287 @@ derivable_executor <|-- thread_executor
 * m_last_retired: 已经结束的线程
 * m_abort: 执行器调用shutdown，m_abort被设置为true，但是此时会等待线程执行结束
 * m_atomic_abort: 执行器调用shutdown后m_atomic_abort设置为true
+
+### manual_executor
+
+manual_executor没有自带线程，任务添加后不会自动执行。如果需要执行任务，需要调用相关的接口同步执行若干任务。任务是在调用执行接口的线程上执行的。
+
+```plantuml
+class executor{}
+class derivable_executor{}
+
+executor <|-- derivable_executor
+
+class manual_executor {
+  - mutable std::mutex m_lock
+  - std:deque<task> m_tasks
+  - std::condition_variable m_condition
+  - bool m_abort
+  - std::atomic_bool m_atomic_abort
+
+  - static std::chrono::system_clock::time_point to_system_time_point
+  - static std::chrono::system_clock::time_point time_point_from_now
+
+  - size_t loop_impl
+  - size_t loop_until_impl
+  - void wait_for_tasks_impl(size_t count)
+  - size_t wait_for_tasks_impl(size_t count, std::chrono::time_point<std::chrono::system_clock> deadlie)
+
+  + manual_executor()
+  
+  + void enqueue(task task) override
+  + void enqueue(std::span<task> tasks) override
+  + int max_concurrency_level() const noexcept override
+  + void shutdown override
+  + bool shutdown_requested() const override
+
+  + size_t size() const
+  + bool empty() const
+
+  + size_t clear()
+
+  + bool loop_once()
+  + bool loop_once_for(std::chrono::milliseconds max_waiting_time)
+
+  + bool loop_once_until(std::chrono::time_point<clock_type, duration_type> timeout_time)
+  
+  + size_t loop(size_t max_count)
+  + size_t loop_for(size_t max_count, std::chrono::milliseconds max_waiting_time)
+
+  + size_t loop_until(size_t max_count, std::chrono::time_point<clock_type, duration_type> timeout_time)
+
+  + void wait_for_task()
+  + bool wait_for_task_for(std::chrono::milliseconds max_waiting_time)
+
+  + bool wait_for_task_until(std::chrono::time_point<clock_type, duration_type> timeout_time)
+
+  + wait_for_tasks(size_t count)
+  + size_t wait_for_tasks_for(size_t count, std::chrono::milliseconds max_waiting_time)
+
+  + size_t wait_for_tasks_until(size_t count, std::chrono::time_point<clock_type, duration_type> timeout_time)
+}
+
+derivable_executor <|-- manual_executor
+```
+
+类中部分变量含义：
+* m_tasks: 此executor中的task队列
+
+部分接口作用：
+* bool loop_once() 执行一个任务
+* bool loop_once_for(std::chrono::milliseconds max_waiting_time) 执行一个任务，最长等待max_waiting_time时间
+* size_t loop(size_t max_count) 执行max_count个任务
+* size_t loop_for(size_t max_count, std::chrono::milliseconds max_waiting_time) 最多执行max_count个任务，最大等待时间为max_waiting_time
+* size_t clear() 清除所以未执行的task
+* void wait_for_task() 等待一个task被添加
+* void wait_for_task_for(std::chrono::milliseconds max_waiting_time) 等待一个task被添加，最大等待时间为max_waiting_time
+* void wait_for_tasks(size_t count) 等待count个任务被添加
+* void wait_for_tasks_for(size_t count, std::chrono::milliseconds max_waiting_time) 等待count个任务被添加，最大等待时间为max_waiting_time
+* void shutdown() 关闭excutor
+* bool shutdown_requested() 是否shutdown被关闭
+
+### worker_thread_executor
+一个工作执行器，可以向其添加任务，执行器会开一个线程一直执行被添加的任务
+
+类图
+```plantuml
+class executor{}
+class derivable_executor{}
+
+executor <|-- derivable_executor
+
+class worker_thread_executor {
+  - std::deque<task> m_private_queue
+  - std::atomic_bool m_private_atomic_abort
+  - details::thread m_thread
+  - std::mutex m_lock
+  - std::deque<task> m_public_queue
+  - details::binary_semaphore m_semaphore
+  - std::atomic_bool m_atomic_abort
+  - bool m_abort
+
+  - bool drain_queue_impl()
+  - bool drain_queue()
+  - void wait_for_task(std::unique_lock<std::mutex>& lock)
+  - void work_loop()
+
+  - void enqueue_local(task& task)
+  - void enqueue_local(std::span<task> task)
+
+  - void enqueue_foreign(task& task)
+  - void enqueue_foreign(std::span<task> task)
+
+  + worker_thread_executor()
+
+  + void enqueue(task task) override
+  + void enqueue(std::span<task> tasks) override
+
+  + int max_concurrency_level() const noexcept override
+
+  + bool shutdown_requested() const override
+  + void shutdown() override
+}
+
+derivable_executor <|-- worker_thread_executor
+```
+类中部分变量含义：
+* m_private_queue: 类中使用的task队列，执行任务时用
+* m_private_atomic_abort: 没什么用
+* m_thread: 执行线程
+* m_public_queue: 保存外部添加task的队列，执行时将m_public_queue和m_private_queue交换
+
+类中部分函数作用：
+* bool drain_queue_impl() 执行m_private_queue中的所有任务
+* void wait_for_task(std::unique_lock<std::mutex>& lock) 等待直到m_public_queue中有任务
+* bool drain_queue() 执行m_public_queue中的所有任务
+* void work_loop() 线程中的执行函数，一直执行任务
+* void enqueue_local(task& task) 向m_private_queue中添加task
+* void enqueue_local(std::span<task> tasks) 向m_private_queue中添加tasks
+* void enqueue_foreign(task& task) 向m_public_queue中添加task
+* void enqueue_foreign(std::span<task> tasks) 向m_public_queue中添加tasks
+* void enqueue(task task) 向executor中添加task，如果向同一线程中添加则直接添加到m_private_queue中，如果向不同线程中添加，则添加到m_public_queue中
+
+### thread_pool_executor
+
+类图
+```plantuml
+
+struct padded_flag {
+  + std::atomic<status> flag {status::active}
+}
+
+class details::idle_worker_set {
+  - std::atomic_intptr_t m_approx_size
+  - const std::unique_ptr<padded_flag[]> m_idle_flags
+  - const size_t m_size
+
+  - bool try_acquire_flag(size_t index) noexcept
+
+  + idle_worker_set(size_t size)
+  
+  + void set_idle(size_t idle_thread) noexcept
+  + void set_active(size_t idle_thread) noexcept
+
+  + size_t find_idle_worker(size_t caller_index) noexcept
+  + void find_idle_workers(size_t caller_index, std::vector<size_t>& result_buffer, size_t max_count) noexcept
+}
+
+class details::thread_pool_worker {
+  - std::deque<task> m_private_queue
+  - std::vector<size_t> m_idle_worker_list
+  - std::atomic_bool m_atomic_abort
+  - thread_pool_executor& m_parent_pool
+  - const size_t m_index
+  - const size_t m_pool_size
+  - const std::chrono::milliseconds m_max_idle_time
+  - std::mutex m_lock
+  - std::queue<task> m_public_queue
+  - binary_semaphore m_semaphore
+  - bool m_idle
+  - bool m_abort
+  - std::atmoic_bool m_task_found_or_abort
+  - thread m_thread
+
+  - void balance_work
+  - bool wait_for_task(std::unique_lock<std::mutex>& lock)
+  - bool drain_queue_impl()
+  - bool drain_queue()
+  - void work_loop()
+  - void ensure_worker_active(bool first_enqueuer, std::unique_lock<std::mutex>& lock)
+
+  + void enqueue_foreign(task& task)
+  + void enqueue_foreign(std::span<task> tasks)
+  + void enqueue_foreigh(std::deque<task>::iterator begin, std::deque<task>::iterator end)
+  + void enqueue_foreigh(std::span<task>::iterator begin, std::span<task>::iterator end)
+
+  + void enqueue_local(task& task)
+  + void enqueue_local(std::span<task> tasks)
+
+  + void shutdown()
+
+  + std::chrono::milliseconds max_worker_idle_time() const noexcept
+  + bool appears_empty() const noexcept
+}
+
+class executor {}
+class derivable_executor {}
+
+executor <|-- derivable_executor
+
+class thread_pool_executor {
+  - std::vector<details::thread_pool_worker> m_workers
+  - std::atomic_size_t m_round_robin_cursor
+  - details::idle_worker_set m_idle_workers
+  - std::atomic_bool m_abort
+
+  - void mark_worker_idle(size_t index) noexcept
+  - void mark_worker_active(size_t index) noexcept
+  - void find_idle_workers(size_t caller_index, std::vector<size_t>& buffer, size_t max_count) noexcept
+  - details::thread_pool_workers& worker_at(size_t index) noexcept
+
+  + void enqueue(task task) override
+  + void enqueue(std::span<task> tasks) override
+  
+  + int max_concurrency_level() const noexcept override
+
+  + bool shutdown_requested() const override
+  + void shutdown() override
+
+  + std::chrono::milliseconds max_worker_idle_time() const noexcept
+}
+
+derivable_executor <|-- thread_pool_executor
+
+```
+
+#### idle_worker_set
+类中部分变量的含义：
+* m_approx_size: 空闲线程的数量
+* m_idle_flags: 保存线程状态
+* m_size: 总的线程数量
+
+类中部分函数的含义：
+* bool try_acquire_flag(size_t index) 将序号为index的线程状态设置为活动
+* void set_idle(size_t idle_thread) 将序号为idle_thread的线程状态设置为空闲
+* void set_active(size_t idle_thread) 将序号为idle_thread的线程状态设置为活动
+* size_t find_idle_worker(size_t caller_index) 从caller_index下一个线程开始，找到第一个空闲线程，并将其置为活动
+* void find_idle_workers(size_t caller_index, std::vector<size_t>& result_buffer, size_t max_count) 从caller_index开始，找到最多max_count个空闲线程，并将其设置为活动
+
+## task
+
+```plantuml
+struct vtable {
+  + move_destroy_fn: void (*)(void* src, void* dst) noexcept
+  + execute_destroy_fn: void(*)(void* target)
+  + destroy_fn: void(*)(void* target) noexcept
+
+  + static constexpr bool trivially_copiable_destructible(decltype(move_destroy_fn) move_fn) noexcept
+  + static constexpr bool trivially_destructable(decltype(destroy_fn) destroy_fn) noexcept
+}
+
+class callable_vtable {
+  - static callable_type* inline_ptr(void* src) noexcept
+  - static callable_type* allocated_ptr(void* src) noexcept
+  - static callable_type*& allocated_ref_ptr(void* src) noexcept
+  - static void move_destroy_inline(void* src, void* dst) noexcept
+  - static void move_destroy_allocated(void* src, void* dst) noexcept
+  - static void execute_destroy_inline(void* target)
+  - static void execute_destroy_allocated(void* target)
+  - static void destroy_inline(void* target) noexcept
+  - static void destroy_allocated(void* target) noexcept
+  - static constexpr vtable make_vtable() noexcept
+
+  - static void build_inlinable(void* dst, passed_callable_type&& callable)
+  - static void build_allocated(void* dst, passed_callable_type&& callable)
+
+  + static constexpr bool is_inlinable() noexcept
+  + static void build(void* dst, passed_callable_type&& callable)
+  + static void move_destroy(void* src, void* dst) noexcept
+  + static void execute_destroy(void* target)
+  + static void destroy(void* target) noexcept
+  + static constexpr callable_type* as(void* src) noexcept
+  + static constexpr inline vtable svtable = make_vtable()
+}
+
+callable_vtable o-- vtable
+```
