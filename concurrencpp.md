@@ -912,6 +912,41 @@ result_state o-- producer_context
 * void try_rewind_consumer() 回退consumer（将状态从consumer_set设置为idle）
 
 
+```plantuml
+class result {
+  - details::consumer_result_state_ptr<type> m_state
+
+  - void throw_if_empty(const char* message)
+
+  + explicit operator bool()
+  + result_status status()
+  + void wait()
+  + result_status wait_for(std::chrono::duration duration)
+  + result_status wait_until(std::chrono::time_point timeout_time)
+  + type get()
+  + auto operator co_wait()
+  + auto resolve()
+}
+
+class result_promise {
+  - details::producer_result_state_ptr<type> m_state
+  - bool m_result_retrieved
+
+  - void throw_if_empty(const char* message)
+  - voi break_task_if_needed()
+
+  + explicit operator bool()
+  + void set_result(argument_types&&... arguments)
+  + void set_exception(std::exception_ptr exception_ptr)
+  + void set_from_function(callable_type&& callabel, argument_types&&... arguments)
+  + result<type> get_result()
+}
+```
+
+result用于从协程返回结果
+result_promise用于在协程中保存结果
+result和result_promise中的m_state是同一个值
+
 #### 
 ## task
 
