@@ -663,7 +663,7 @@ thread_pool_worker中的逻辑和worker_thread_executor逻辑基本相同，其�
 
 ## results
 
-
+### await_via_functor
 
 ```plantuml
 class await_via_functor {
@@ -675,6 +675,50 @@ class await_via_functor {
   + void operator()() noexcept
 }
 
+```
+await_via_functor保存协程的句柄，执行协程
+* void operator()() 恢复协程执行
+
+### generator
+```plantuml
+class generator_state {
+  - value_type* m_value
+  - std::exception_ptr m_exception
+
+  + generator<type> get_return_object()
+  + suspend_always intial_suspend()
+  + suspend_always final_suspend()
+  + suspend_always yield_value(value_type& ref)
+  + suspend_always yield_value(value_type&& ref)
+  + void return void()
+  + value_type& value()
+  + void throw_if_exception()
+}
+
+class generator_iterator {
+  - coroutine_handle<generator_state<type>> m_coro_handle
+
+  + generator_iterator& operator++()
+  + void operator++(int)
+  + reference operator*()
+  + pointer operator->()
+}
+
+class generator {
+  - details::coroutine_handle<promise_type> m_coro_handle
+
+  + generator(details::coroutine_handle<promise_type> handle)
+  + generator(generator&& rhs)
+  + ~generator()
+  + explicit operator bool()
+  + iterator begin()
+}
+```
+其中generator_state是一个promise object，generator是一个协程对象
+
+### consumer_context & producer_context
+
+```plantuml
 class wait_context {
   - std::mutex m_lock
   - std::condition_variable m_condition
@@ -718,12 +762,10 @@ class consumer_context {
   + void set_when_any_context(const std::shared_ptr<when_any_context>& when_any_context)
 }
 
-```
+consumer_context o-- wait_context
+consumer_context o-- when_any_context
 
-### 类解析
-#### await_via_functor
-await_via_functor保存协程的句柄，执行协程
-* void operator()() 恢复协程执行
+```
 
 #### wait_context
 使用条件变量实现等待和通知的功能
@@ -748,43 +790,27 @@ consumer_context可能包含下列三个类对象之一
 * void set_wait_for_context(const std::shared_ptr<wait_context>& wait_ctx) 通过wait_context构造consumer_context
 * void set_when_any_context(const std::shared_ptr<when_any_context>& when_any_ctx) 通过when_any_context构造consumer_context
 
-
-### generator
 ```plantuml
-class generator_state {
-  - value_type* m_value
-  - std::exception_ptr m_exception
-
-  + generator<type> get_return_object()
-  + suspend_always intial_suspend()
-  + suspend_always final_suspend()
-  + suspend_always yield_value(value_type& ref)
-  + suspend_always yield_value(value_type&& ref)
-  + void return void()
-  + value_type& value()
-  + void throw_if_exception()
+enum result_status {
+  idle
+  value
+  exception
 }
 
-class generator_iterator {
-  - coroutine_handle<generator_state<type>> m_coro_handle
+class producer_context {
+  - storage m_storage
+  - result_status m_status
 
-  + generator_iterator& operator++()
-  + void operator++(int)
-  + reference operator*()
-  + pointer operator->()
+  + void build_result(argument_types&&... arguments)
+  + void build_exception(const std::exception_ptr& exception)
+  + result_status status()
+  + type get()
+
+  type& get_ref()
 }
 
-class generator {
-  - details::coroutine_handle<promise_type> m_coro_handle
-
-  + generator(details::coroutine_handle<promise_type> handle)
-  + generator(generator&& rhs)
-  + ~generator()
-  + explicit operator bool()
-  + iterator begin()
-}
+producer_context ..> result_status
 ```
-其中generator_state是一个promise object，generator是一个协程对象
 
 ### lazy_result
 ```plantuml
@@ -873,27 +899,18 @@ class result_state {
   + void complete_producer(coroutine_handle<void> done_handle)
   + void complete_consumer()
 }
+
+result_state_base *-- pc_state
+result_state <|-- result_state_base
+result_state o-- producer_context
 ```
 
-```plantuml
-enum result_status {
-  idle
-  value
-  exception
-}
+#### result_state_base
+* void wait() 等待producer任务执行完成
+* bool await(coroutine_handle<void> caller_handle) 异步等待producer任务执行完成
+* pc_state when_any(const std::shared_ptr<when_any_context>& when_any_state) ?
+* void try_rewind_consumer() 回退consumer（将状态从consumer_set设置为idle）
 
-class producer_context {
-  - storage m_storage
-  - result_status m_status
-
-  + void build_result(argument_types&&... arguments)
-  + void build_exception(const std::exception_ptr& exception)
-  + result_status status()
-  + type get()
-
-  type& get_ref()
-}
-```
 
 #### 
 ## task
@@ -949,3 +966,12 @@ class task {
   + bool contains() const noexcept
 }
 ```
+
+#### vtable
+* bool trivially_copiable_destructible(decltype(move_destroy_fn) move_fn) 是否不能移动析构
+* bool trivially_destructable(decltype(destroy_fn) destroy_fn) 是否不能析构
+
+#### callable_vtable
+这个类中需要注意，存在两种可执行对象
+* 可执行对象之间保存在task的buf中
+* 可执行对象不能保存到task的buf中，把可执行对象在堆上分配，然后把指针保存在task的buf中
