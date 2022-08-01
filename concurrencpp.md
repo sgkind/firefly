@@ -1,6 +1,14 @@
 代码仓库地址：[David-Haim/concurrencpp at develop (github.com)](https://github.com/David-Haim/concurrencpp/tree/develop)
 
+使用concurrencpp，c++开发者可以更容易、更安全的使用tasks、exeuctors和coroutines开发高并发应用程序。concurrencpp使需要异步运行的大型程序分割成同时运行的小任务，任务间协作获取想要的结果。
+concurrencpp的优势：
 
+* 不需要使用底层同步原语，如锁或者条件变量，来开发现代并发程序.(对于应用开发者，concurrencpp框架内部使用了同步原语)
+* 能够写可以根据硬件资源自动扩展的高并发和并行程序(线程数根据cpu核数自动扩展+c++20的协程)
+* 通过使用C++20协程和co_await可以容易的写非阻塞和看起来像同步程序的代码
+* 可以减少竞争条件、数据竞争和死锁的发生
+* 提供了几种完全继承协程的通用执行器
+* 可以对执行器进行扩展
 
 ## 架构
 
@@ -19,7 +27,7 @@ class details::executor_collection {
 struct runtime_options {
   + size_t max_cpu_threads
   + std::chrono::milliseconds max_thread_pool_executor_waiting_time
-  
+
   + size_t max_background_threads
   + std::chrono::milliseconds max_background_executor_waiting_time
 
@@ -81,6 +89,8 @@ runtime ..> runtime_options
 
 ## timer
 
+定时器的实现，定时器自动执行器，定时器到期后任务在自带的执行器上执行。timer_queue检查定时器逻辑和现在time库中的检查逻辑差别不大。
+
 类图
 
 ```plantuml
@@ -113,7 +123,7 @@ class timer_state_base {
 
 class timer_state {
   - callable_type m_callable
-  
+
   + timer_state(size_t due_time, size_t frequency, std::shared_ptr<executor> executor, std::weak_ptr<timer_queue> timer_queue, bool is_oneshot, given_callable_type&& callable)
   + void execute() override
 }
@@ -142,7 +152,7 @@ class timer_queue {
   - bool m_abort
   - bool m_idle
   - const std::chrono::milliseconds m_max_waiting_time
-  
+
   - details::thread ensure_worker_thread(std::unique_lock<std::mutex>& lock)
   - void add_internal_timer(std::unique_lock<std::mutex>& lock, timer_ptr new_timer)
   - void remove_internal_timer(timer_ptr existing_timer)
@@ -150,7 +160,7 @@ class timer_queue {
   - lazy_result<void> make_delay_object_impl(std::chrono::milliseconds due_time,
         std::shared_ptr<concurrencpp::timer_queue> self,
        std::shared_ptr<concurrencpp::executor> executor)
-  
+
   - timer_ptr make_timer_impl(size_t due_time,
                                   size_t frequency,
                                   std::shared_ptr<concurrencpp::executor> executor,
@@ -181,8 +191,6 @@ timer_state_base <|-- timer_state
 timer o-- timer_state_base
 
 timer_queue o-- timer_state_base
-
-
 ```
 
 类timer_state_base中部分字段的含义
@@ -201,21 +209,19 @@ timer_queue o-- timer_state_base
 
 * m_worker: 检查定时器是否到时的队列
 
-
-
 timer自带执行器executor，timer_queue保存timer，并检查到期的定时器，然后调度timer->execute()执行定时器的callable
-
-
 
 可参考点：
 
 1. 定时器自带执行器
 
-2. 定时检查线程在没用定时器时会销毁，新添加timer后如果没有检查线程则创建
+2. 定时检查线程等待指定最大等待时间内如果没有定时器会销毁，新添加timer后如果没有检查线程则创建
 
 ## thread
+
 对std::thread的封装，可以设置线程名
 类图
+
 ```plantuml
 class thread {
   - std::thread m_thread
@@ -242,7 +248,7 @@ class thread {
 class executor {
   - static result<return_type> submit_bridge(executor_tag, executor_type&, callback_type callback, argument_types... arguments)
   - static result<return_type> bulk_submit_bridge(details::executor_bulk_tag, std::vector<task>& accumulator, callback_type callable)
-  
+
   # static void do_post(executor_type& executor_ref, callable_type&& callable, argument_types&&... arguments)
   # static auto do_submit(executor_type& executor_ref, callable_type&& callable, argument_type&&... arguments)
   # static std::vector<concurrencpp::result<return_type>> do_bulk_submit(executor_type& executor_ref, std::span<callable_type> callable_list)
@@ -264,7 +270,7 @@ class executor {
 
 class derivable_executor {
   - concrete_executor_type& self() noexcept
-  
+
   + derivable_executor(std::string_view name)
   + void post(callable_type&& callable, argument_types&&... arguments)
   + void submit(callable_type&& callable, argument_types&&... arguments)
@@ -275,10 +281,20 @@ class derivable_executor {
 executor <|-- derivable_executor
 ```
 
+executor为执行器的基类，提供接口
+
+derivable_executor 用户自定义执行器的基类。
+
+* void post(callable_type& callable, argument_type&&... arguments)用于添加无返回值的任务
+
+* void submit(callable_type& callable, argument_type&&... arguments)用于添加有返回值的任务
+
 ### inline_executor
+
 inline_executor不创建单独的执行线程，任务在添加到执行器时在添加任务的线程上执行
 
 类图
+
 ```plantuml
 class inline_executor {
   - std::atomic_bool m_abort
@@ -315,9 +331,11 @@ void enqueue(std::span<task> tasks) override {
 ```
 
 ### thread_executor
-thread_executor每创建一个任务就创建一个线程执行此任务
+
+thread_executor每添加一个任务就创建一个线程执行此任务，任务执行完成后线程被销毁，因此线程不会被重用。用于执行长时运行的任务。
 
 类图
+
 ```plantuml
 class thread_executor {
   - std::mutex m_lock
@@ -349,6 +367,7 @@ derivable_executor <|-- thread_executor
 ```
 
 其中部分字段的含义
+
 * m_lock: 锁
 * m_workers: 工作线程
 * m_last_retired: 已经结束的线程
@@ -357,7 +376,7 @@ derivable_executor <|-- thread_executor
 
 ### manual_executor
 
-manual_executor没有自带线程，任务添加后不会自动执行。如果需要执行任务，需要调用相关的接口同步执行若干任务。任务是在调用执行接口的线程上执行的。
+manual_executor没有自带线程，任务添加后不会自动执行。如果需要执行任务，需要手动调用相关的接口同步执行若干任务。任务是在调用执行接口的线程上执行的。
 
 ```plantuml
 class executor{}
@@ -381,7 +400,7 @@ class manual_executor {
   - size_t wait_for_tasks_impl(size_t count, std::chrono::time_point<std::chrono::system_clock> deadlie)
 
   + manual_executor()
-  
+
   + void enqueue(task task) override
   + void enqueue(std::span<task> tasks) override
   + int max_concurrency_level() const noexcept override
@@ -397,7 +416,7 @@ class manual_executor {
   + bool loop_once_for(std::chrono::milliseconds max_waiting_time)
 
   + bool loop_once_until(std::chrono::time_point<clock_type, duration_type> timeout_time)
-  
+
   + size_t loop(size_t max_count)
   + size_t loop_for(size_t max_count, std::chrono::milliseconds max_waiting_time)
 
@@ -418,9 +437,11 @@ derivable_executor <|-- manual_executor
 ```
 
 类中部分变量含义：
+
 * m_tasks: 此executor中的task队列
 
 部分接口作用：
+
 * bool loop_once() 执行一个任务
 * bool loop_once_for(std::chrono::milliseconds max_waiting_time) 执行一个任务，最长等待max_waiting_time时间
 * size_t loop(size_t max_count) 执行max_count个任务
@@ -434,9 +455,11 @@ derivable_executor <|-- manual_executor
 * bool shutdown_requested() 是否shutdown被关闭
 
 ### worker_thread_executor
-一个工作执行器，可以向其添加任务，执行器会开一个线程一直执行被添加的任务
+
+一个工作执行器和一个执行任务队列，可以向其添加任务，执行器会开一个线程一直执行被添加的任务。用于程序想在同一个线程上执行相关的任务。
 
 类图
+
 ```plantuml
 class executor{}
 class derivable_executor{}
@@ -477,13 +500,16 @@ class worker_thread_executor {
 
 derivable_executor <|-- worker_thread_executor
 ```
+
 类中部分变量含义：
+
 * m_private_queue: 类中使用的task队列，执行任务时用
 * m_private_atomic_abort: 没什么用
 * m_thread: 执行线程
 * m_public_queue: 保存外部添加task的队列，执行时将m_public_queue和m_private_queue交换
 
 类中部分函数作用：
+
 * bool drain_queue_impl() 执行m_private_queue中的所有任务
 * void wait_for_task(std::unique_lock<std::mutex>& lock) 等待直到m_public_queue中有任务
 * bool drain_queue() 执行m_public_queue中的所有任务
@@ -496,9 +522,15 @@ derivable_executor <|-- worker_thread_executor
 
 ### thread_pool_executor
 
-类图
-```plantuml
+具有一个线程池的通用执行器,此执行器类在runtime中有两个对象：
 
+* thread pool executor 适用于不会阻塞的短时运行的cpu密集型任务。用户在执行非阻塞任务时推荐使用此执行器。
+
+* background executor 具有大量线程的线程池执行器，适用于短时阻塞任务，比如文件io和db查询等。和上面thread pool executor的区别，添加任务时调用不同的接口
+
+类图
+
+```plantuml
 struct padded_flag {
   + std::atomic<status> flag {status::active}
 }
@@ -511,7 +543,7 @@ class details::idle_worker_set {
   - bool try_acquire_flag(size_t index) noexcept
 
   + idle_worker_set(size_t size)
-  
+
   + void set_idle(size_t idle_thread) noexcept
   + void set_active(size_t idle_thread) noexcept
 
@@ -574,7 +606,7 @@ class thread_pool_executor {
 
   + void enqueue(task task) override
   + void enqueue(std::span<task> tasks) override
-  
+
   + int max_concurrency_level() const noexcept override
 
   + bool shutdown_requested() const override
@@ -584,22 +616,286 @@ class thread_pool_executor {
 }
 
 derivable_executor <|-- thread_pool_executor
-
+thread_pool_executor *-- details::idle_worker_set
+thread_pool_executor o-- details::thread_pool_worker
 ```
 
 #### idle_worker_set
+
 类中部分变量的含义：
+
 * m_approx_size: 空闲线程的数量
 * m_idle_flags: 保存线程状态
 * m_size: 总的线程数量
 
 类中部分函数的含义：
+
 * bool try_acquire_flag(size_t index) 将序号为index的线程状态设置为活动
 * void set_idle(size_t idle_thread) 将序号为idle_thread的线程状态设置为空闲
 * void set_active(size_t idle_thread) 将序号为idle_thread的线程状态设置为活动
 * size_t find_idle_worker(size_t caller_index) 从caller_index下一个线程开始，找到第一个空闲线程，并将其置为活动
 * void find_idle_workers(size_t caller_index, std::vector<size_t>& result_buffer, size_t max_count) 从caller_index开始，找到最多max_count个空闲线程，并将其设置为活动
 
+#### details::thread_pool_worker
+
+thread_pool_worker中的逻辑和worker_thread_executor逻辑基本相同，其进行的工作可以参考worker_thread_executor。区别点在于每一个thread_pool_executor中有多个details::thread_pool_worker，因此在每个details::thread_pool_worker中执行任务前会在thread_pool_executor内部的所有空闲details::thread_pool_worker间平衡任务。
+
+#### worker_thread_executor
+
+类中部分变量的含义：
+
+* m_round_robin_cursor：添加任务时用来表示当前任务添加到哪个工作线程
+* m_idle_workers: 对工作线程状态进行薄记和管理
+* m_abort: 退出标记
+
+类中部分函数作用：
+
+* void mark_worker_idle(size_t index) 将第index个执行线程标记为空闲状态
+* void mark_worker_active(size_t index) 将第index个执行线程标记为活动状态
+* void find_idle_workers(size_t caller_index, std::vector<size_t>& buffer, size_t max_count) 找到最多max_count个空闲线程
+* details::thread_pool_worker& worker_at(size_t index) 获取第index个工作线程
+* void enqueue(task task) 向执行器添加单个任务
+* void enqueue(std::span<task> tasks) 向执行器添加多个任务
+* int max_concurrency_level() 并发数
+* bool shutdown_requested() 执行器是否被关闭
+* void shutdown() 关闭执行器
+* std::chrono::milliseconds max_worker_idle_time() 工作线程最大工作时间
+
+## results
+
+
+
+```plantuml
+class await_via_functor {
+  - coroutine_handle<void> m_caller_handle
+  - bool* m_interrupted
+
+  + await_via_functor(coroutine_handle<void> caller_handle, bool* interrupted)
+  + await_via_functor(await_via_functor&& rhs) noexcept
+  + void operator()() noexcept
+}
+
+class wait_context {
+  - std::mutex m_lock
+  - std::condition_variable m_condition
+  - bool m_ready
+
+  + void wait()
+  + bool wait_for(size_t milliseconds)
+  + void notify()
+}
+
+class when_any_context {
+  - std::atomic<const result_state_base*> m_status
+  - coroutine_handle<void> m_coro_handle
+
+  + bool any_result_finished() const noexcept
+  + bool finish_processing() noexcept
+  + const result_state_base* completed_result() const noexcept
+
+  + void try_resume(result_state_base& completed_result) noexcept
+  + bool result_inline(result_state_base& completed_result) noexcept
+}
+
+enum consumer_status {
+  idle
+  await
+  wait_for
+  when_any
+}
+
+class consumer_context {
+  - consumer_status m_status
+  - storage m_storage
+
+  - void destroy() noexcept
+
+  + void clear() noexcept
+  + void resume_consumer(result_state_base& self) const
+  
+  + void set_await_handle(coroutine_handle<void> caller_handle) noexcept
+  + void set_wait_for_context(const std::shared_ptr<wait_context>& wait_ctx) noexcept
+  + void set_when_any_context(const std::shared_ptr<when_any_context>& when_any_context)
+}
+
+```
+
+### 类解析
+#### await_via_functor
+await_via_functor保存协程的句柄，执行协程
+* void operator()() 恢复协程执行
+
+#### wait_context
+使用条件变量实现等待和通知的功能
+* void wait() 等待m_ready变为true
+* bool wait_for(size_t milliseconds) 等待m_ready变为true，最大等待时间为milliseconds
+* void notify() 通知m_ready变为true
+
+#### when_any_context
+* bool any_result_finished() 结果是否处理完
+* bool finish_processing() 将状态从处理中修改为处理完成
+* void try_result(result_state_base& completed_result) 将状态修改为completed_result，然后恢复协程
+* bool resume_inline(result_state_base& completed_result) 将状态修改为completed_result
+* const result_state_base* completed_result() 获取状态
+
+#### consumer_context
+consumer_context可能包含下列三个类对象之一
++ coroutine_handle<void>
++ wait_context
++ when_any_context
+
+* void set_await_handle(coroutine_handle<void> caller_handle) 通过协程句柄构造consumer_context
+* void set_wait_for_context(const std::shared_ptr<wait_context>& wait_ctx) 通过wait_context构造consumer_context
+* void set_when_any_context(const std::shared_ptr<when_any_context>& when_any_ctx) 通过when_any_context构造consumer_context
+
+
+### generator
+```plantuml
+class generator_state {
+  - value_type* m_value
+  - std::exception_ptr m_exception
+
+  + generator<type> get_return_object()
+  + suspend_always intial_suspend()
+  + suspend_always final_suspend()
+  + suspend_always yield_value(value_type& ref)
+  + suspend_always yield_value(value_type&& ref)
+  + void return void()
+  + value_type& value()
+  + void throw_if_exception()
+}
+
+class generator_iterator {
+  - coroutine_handle<generator_state<type>> m_coro_handle
+
+  + generator_iterator& operator++()
+  + void operator++(int)
+  + reference operator*()
+  + pointer operator->()
+}
+
+class generator {
+  - details::coroutine_handle<promise_type> m_coro_handle
+
+  + generator(details::coroutine_handle<promise_type> handle)
+  + generator(generator&& rhs)
+  + ~generator()
+  + explicit operator bool()
+  + iterator begin()
+}
+```
+其中generator_state是一个promise object，generator是一个协程对象
+
+### lazy_result
+```plantuml
+class suspend_always{}
+
+class lazy_final_awaiter {
+  + coroutine_handle<void> await_suspend(coroutine_handle<promise_type> handle)
+}
+
+suspend_always <|-- lazy_final_awaiter
+
+class lazy_result_state_base {
+  # coroutine_handle<void> m_caller_handle
+
+  + coroutine_handle<void> resume_caller()
+  + coroutine_handle<void> await(coroutine_handle<void> caller_handle)
+}
+
+class lazy_result_state {
+  - producer_context<type> m_producer
+  
+  + result_status status()
+  + lazy_result<type> get_return_object()
+  + void unhandled_exception()
+  + suspend_always intial_suspend()
+  + lazy_final_awaiter final_suspend()
+  + void set_result(argument_type&&... arguments)
+  + type get()
+}
+
+lazy_result_state <|-- lazy_result_state_base
+
+class lazy_result {
+  - details::coroutine_handle<details::lazy_result_state<type>> m_state
+
+  - void throw_if_empty(const char* err_msg)
+  - result<type> run_impl()
+
+  + explicit operator bool()
+  + auto operator co_await()
+  + auto resolve()
+  + result<type> run()
+}
+```
+
+lazy_result_state是一个promise object
+
+### result
+```plantuml
+enum pc_state {
+  idle
+  consumer_set
+  comsumer_waiting
+  consumer_done
+  producer_done
+}
+
+class result_state_base {
+  # std::atomic<pc_state> m_pc_state
+  # consumer_context m_consumer
+  # coroutine_handle<void> m_done_handle
+
+  # void assert_done()
+
+  + void wait()
+  + void await(coroutine_handle<void> caller_handle)
+  + pc_state when_any(const std::shared_ptr<when_any_context>& when_any_state)
+
+  + void try_rewind_consumer()
+}
+
+class result_state {
+  - producer_context<type> m_producer
+
+  - void from_callable(std::true_type, callable_type&& callable)
+  - void from_callable(std::false_type, callable_type&& callable)
+
+  + void set_result(argument_type&&.. arguments)
+  + void set_exception(const std::exception_ptr& error)
+  + result_status status()
+  + result_status wait_for(std::chrono::duration duration)
+  + result_status wait_until(const std::chrono::time_point& timeout_time)
+
+  + type get()
+  + void from_callable(callable_type&& callable)
+  + void complete_producer(coroutine_handle<void> done_handle)
+  + void complete_consumer()
+}
+```
+
+```plantuml
+enum result_status {
+  idle
+  value
+  exception
+}
+
+class producer_context {
+  - storage m_storage
+  - result_status m_status
+
+  + void build_result(argument_types&&... arguments)
+  + void build_exception(const std::exception_ptr& exception)
+  + result_status status()
+  + type get()
+
+  type& get_ref()
+}
+```
+
+#### 
 ## task
 
 ```plantuml
@@ -637,4 +933,19 @@ class callable_vtable {
 }
 
 callable_vtable o-- vtable
+
+class task {
+  - std::byte m_buffer[details::task_constants::buffer_size]
+  - const details::vtable* m_vtable
+
+  - void build(task&& rhs) noexcept
+  - void build(details::coroutine_handle<void> coro_handle) noexcept
+
+  - static bool contains(const details::vtable* const vtable) noexcept
+
+  + void operator()()
+  + void clear()
+  + explicit operator bool() const noexcept
+  + bool contains() const noexcept
+}
 ```
