@@ -943,9 +943,10 @@ class result_promise {
 }
 ```
 
-result用于从协程返回结果
-result_promise用于在协程中保存结果
-result和result_promise中的m_state是同一个值
+* result用于从协程返回结果
+* result_promise用于在协程中保存结果或异常
+* result和result_promise中的m_state是同一个值
+
 
 #### 
 ## task
