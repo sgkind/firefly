@@ -50,6 +50,45 @@ $ git config --global user.email "your_email"
 $ git config --global core.editor [vim|emacs]
 #+END_SRC
 
+* 事件
+** 用本地已有的项目初始化git仓库
+将本地已有的一个非git项目上传到新建的git仓库的方法有两种
+*** 一、克隆+拷贝
+把远程仓库拉到本地，然后再把自己本地的项目拷贝到仓库中去，然后push到远程仓库中去即可。
+*此方法适用于本地项目不是一个git仓库的情况*
+1. 克隆远程仓库
+  #+BEGIN_SRC shell
+  $ git clone git@github.com:xxx/xxx.git
+  #+END_SRC
+2. 复制自己项目的所有文件到刚克隆的仓库中
+3. 将更新push到远程仓库中
+  #+BEGIN_SRC shell
+  $ git add .
+  $ git commit -s
+  $ git push -u origin master
+  #+END_SRC
+*** 二、强行合并两个仓库
+如果本地项目已经被初始化为一个git项目，直接pull会报错。因此需要在pull的时候加上`--allow-unrelated-histories`才可以。
+*此方法适用于本地项目已经是一个git仓库的情况*
+1. 初始化本地git仓库
+  #+BEGIN_SRC shell
+  $ git init
+  $ git add .
+  $ git commit
+  #+END_SRC
+2. 将本地仓库与远程仓库关联起来
+  #+BEGIN_SRC shell
+  git remote add origin git@github.com/xxx/xxx.git
+  #+END_SRC
+3. pull远程仓库的内容，更新本地仓库。需要使用`--allow-unrelated-histories`忽略本地仓库和远程仓库的无关行，强行合并。
+  #+BEGIN_SRC shell
+  $ git pull origin master --allow-unrelated-histories
+  #+END_SRC
+4. 把本地仓库的内容push到远程仓库
+  #+BEGIN_SRC shell
+  $ git push -u origin master
+  #+END_SRC
+
 * 命令
 #+CAPTION: git命令
 #+NAME: fig
