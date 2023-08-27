@@ -1,0 +1,35 @@
+#+TITLE: readelf
+#+AUTHOR: sgkind
+
+* 简介
+readelf用于查看ELF格式的文件信息，例如Linux上的可执行程序、动态库或者静态库。
+
+* 常用参数
++ -h/--file-header    Display the ELF file headers
++ -l/--program-headers/--segments Display the program headers
++ -S/--section-headers/--sections Display the sections' header
++ -s/--syms/--symbols  Display the symbol table
++ -g/--section-groups  Display the section groups
++ -t/--section-details Display the section details
++ -e/--headers         Equivalent to: -h -l -S
++ --dyn-syms           Display the symbol table
++ --lto-syms           Display LTO symbol tables
++ -d/--dynamic         Display the dynamic section(if present)
++ -x/--hex-dump=<number|name> Dump the contents of section <number|name> as bytes
++ -p/--string-dump<number|name> Dump the contents of section <number|name> as strings
++ -W/--wide  Allow output width to exceed 80 characters
++ -a/--all 显示全部信息，等价于`-h -l -S -s -r -d -V -A -i`
+
+* 示例
+** 查看符号
+  #+BEGIN_SRC
+  $ readelf -s xxx.so
+  #+END_SRC
+** 查看依赖库
+  #+BEGIN_SRC
+  $ readelf -d xxx.so | grep NEEDED
+  #+END_SRC
+** 查看section headers
+  #+BEGIN_SRC
+  $ readelf -S --wide xxx|xxx.so
+  #+END_SRC

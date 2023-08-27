@@ -1,6 +1,6 @@
 #+TITLE: emacs
 
-#+AUTHOR: EricSun
+#+AUTHOR: sgkind
 
 * org语法
 ** 标题
