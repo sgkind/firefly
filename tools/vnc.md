@@ -5,7 +5,6 @@
 $ netstat -lp | grep -i vnc
 ```
 
-
 ## ubuntu18.04安装vnc解决灰屏问题
 
 ### 安装相关软件包
