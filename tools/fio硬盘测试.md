@@ -20,10 +20,6 @@ name | job的名称 | fio-read
 size | I/O测试的寻址空间 | 100G
 filename | 测试对象，即待测试的磁盘设备名称 | /dev/sda
 
-
-
-
-
 参考:
 1. [https://cloud.tencent.com/document/product/362/6741](https://cloud.tencent.com/document/product/362/6741)
 

@@ -1,0 +1,40 @@
+#+TITLE: tips
+#+AUTHOR: sgkind
+
+* vscode
+** 配置
+1. 修改右侧预览框的大小 
+  1. File->Preferences->setting
+  2. 在搜索框中搜索minimap
+  3. 将Editor->Minimap: Max Column 修改为合适的值
+
+2. 跳转后在新标签页中打开
+  1. File->Preferences->setting
+  2. 搜索框中搜索preview
+  3. 取消Editor->Rename: Enable Preview
+
+3. 添加垂直分割线
+  1. File->Preferences->setting
+  2. 搜索框中搜索Rulers
+  3. Editor: Rulers中的Edit in settings.json
+  4. 修改
+    #+BEGIN_SRC
+    "editor.rulers": [
+      79
+    ],
+    #+END_SRC
+
+* chrome
+** chrome命令行带代理启动
+  #+BEGIN_SRC shell
+  $ sudo google-chrome --proxy-server="http://127.0.0.1:12333" --no-sandbox --user-data-dir
+  #+END_SRC
+
+  #+BEGIN_SRC shell
+  $ google-chrome --proxy-server="http://127.0.0.1:12333" --user-data-dir
+  #+END_SRC
+
+* 有道云笔记
+  解决ubuntu有道笔记光标错位问题，需安装缺少的字体，中文字体直接拷贝windows上的字体安装
+
+  英文字体需安装monaco，请参考[[https://github.com/cstrap/monaco-font][monaco-font]]
