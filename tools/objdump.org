@@ -1,0 +1,17 @@
+#+TITLE: objdump
+#+AUTHOR: sgkind
+
+* 简介
+objdump用于查看目标文件或者可执行程序
+
+* 常用参数
++ -f 显示文件头信息
++ -D 反汇编所有section
++ -d 反汇编可执行section
++ -h/--[section-]headers 显示各section的头部信息
++ -x/--all-header 显示所有头部信息。等价于`-a -f -h -r -t`
++ -r/--reloc  显示文件中的重定位项。如果和-d或者-D一起使用，重定位部分以反汇编后的格式显示出来。
++ -R/--synamic-reloc  显示文件中的动态重定位项。仅仅对动态目标文件有意义，比如某些共享库
++ -s/--full-contents  显示所有段的内容
++ -S/--source         尽可能反汇编源码
++ -t  显示文件的符号表
