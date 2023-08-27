@@ -2,14 +2,53 @@
 
 #+AUTHOR: EricSun
 * 配置
-1. git忽略mode的配置
+1. git忽略file mode的配置
 #+BEGIN_SRC shell
   git config --add core.filemode false
 #+END_SRC
 
-2. git忽略相关文件
+2. git本地忽略相关文件
    可以将文件或路径加入.git/info/exclude文件。该文件具有与任何.gitignore文件相同的配置格式。
    如果撤销了更改，则需要再编辑忽略模式之后运行如下命令
 #+BEGIN_SRC shell
 git update-index --assume-unchanged <file-list>
 #+END_SRC
+
+3. 解决git status中文乱码
+#+BEGIN_SRC shell
+  git config --global core.quotepath false
+#+END_SRC
+
+* 常用命令
+1. 显示git配置信息
+#+BEGIN_SRC shell
+$ git config --list
+#+END_SRC
+
+2. 显示git用户名
+#+BEGIN_SRC shell
+$ git config user.name
+#+END_SRC
+
+3. 显示git用户邮箱
+#+BEGIN_SRC shell
+$ git config user.email
+#+END_SRC
+
+4. 全局配置用户名
+#+BEGIN_SRC shell
+$ git config --global user.name "your_name"
+#+END_SRC
+
+5. 全局配置用户邮箱
+#+BEGIN_SRC shell
+$ git config --global user.email "your_email"
+#+END_SRC
+
+6. 修改默认编辑器
+#+BEGIN_SRC shell
+$ git config --global core.editor [vim|emacs]
+#+END_SRC
+
+* 命令
+[[images/git.png][git命令]]

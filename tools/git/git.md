@@ -1,5 +1,0 @@
-# git
-
-![](../../images/git.png)
-
-
