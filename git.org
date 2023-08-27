@@ -51,4 +51,6 @@ $ git config --global core.editor [vim|emacs]
 #+END_SRC
 
 * 命令
-[[images/git.png][git命令]]
+#+CAPTION: git命令
+#+NAME: fig
+[[images/git.png]]
