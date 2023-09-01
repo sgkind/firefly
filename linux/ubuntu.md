@@ -1,6 +1,11 @@
 换源
 ===
 
+### 修改主机名
+```shell
+$ sudo hostnamectl set-hostname k8s-master
+```
+
 ## ubuntu 18.04
 
 ### 备份
