@@ -1,6 +1,32 @@
 xfce设置及优化.md
 ===
 
+## xfce4编译
+### 安装依赖包
+#+BEGIN_SRC
+sudo apt install libgudev-1.0-dev
+sudo apt install libwnck-3-dev
+sudo apt install libdbusmenu-gtk3-dev
+sudo apt install libnotify-dev
+sudo apt install libupower-glib-dev
+#+END_SRC
+
+### 编译命令
+#+BEGIN_SRC
+./configure --prefix=/usr/local && make && sudo make install
+#+END_SRC
+
+### 编译顺序
+* xfce4-dev-tools (开发工具)
+* libxfce4util
+* xfconf
+* libxfce4ui
+* garcon exo
+* thunar thunar-volman
+* xfce4-panel xfce4-settings xfce4-session xfdesktop xfwm4 xfce4-appfinder tumbler xfce4-power-manager
+
+
+
 ## xfce触摸板设置
 ### 前提条件
 确保已经安装了synaptics驱动
