@@ -50,6 +50,67 @@
   $ git config --global core.editor [vim|emacs]
   #+END_SRC
 
+* git patch
+** diff/apply
+此方案使用diff命令生成patch文件，然后使用apply命令应用patch到分支
+#+BEGIN_SRC
+# 生成补丁
+git diff > commit.patch
+# 检查补丁
+git apply --check commit.patch
+# 应用补丁
+git apply commit.patch
+#+END_SRC
+
++ git diff
+  没有指定任何版本，默认就是对last commit和working copy之间作比较
++ git diff --cached
+  同git diff，对已经add但未commit的修改生效
++ git diff commit_id
+  对commit_id和working copy之间作比较。如果working space已经commit过了，这个命令等价于对commit_id和last commit作比较
++ git diff commit_id1 commit_id2
+  对commit_id1和commit_id2之间作比较
+
+** format-patch/am
+此方案使用format-patch命令生成一系列patch文件，然后使用am命令批量应用patch。diff不会保留commit信息，而format-patch会完整保留每次提交的完整信息。
+#+BEGIN_SRC
+# 生成patch
+git format-patch -1
+# 检查patch
+git apply --check 0001-made-some-change.patch
+# 应用patch
+git am 0001-made-some-change.patch
+#+END_SRC
+
++ 当然没分支所有超前master的提交
+  #+BEGIN_SRC
+  git format-patch -M master
+  #+END_SRC
+
++ 某次提交以后的所有patch
+  #+BEGIN_SRC
+  git format-patch commit_id
+  #+END_SRC
+
++ 从根到指定提交的所有patch
+  #+BEGIN_SRC
+  git format-patch --root commit_id
+  #+END_SRC
+
++ 某两次提交之间的所有patch
+  #+BEGIN_SRC
+  git format-patch commit_id1 commit_id2
+  #+END_SRC
+
++ 某次提交（含）之前的几次提交
+  #+BEGIN_SRC
+  git format-patch -n commit_id
+
+  git format-patch -1 commit_id
+
+  git format-patch -2 commit_id
+  #+END_SRC
+
 * 事件
 ** 用本地已有的项目初始化git仓库
 将本地已有的一个非git项目上传到新建的git仓库的方法有两种

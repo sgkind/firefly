@@ -1,0 +1,8 @@
+#+TITLE: tools
+#+AUTHOR: sgkind
+
+* top
+#+BEGIN_SRC
+top -H -p <pid>
+#+END_SRC
+
