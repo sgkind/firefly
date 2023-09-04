@@ -7,6 +7,18 @@ rustup doc
 #+BEGIN_SRC
 cargo update
 #+END_SRC
+
+* 配置
+** 更换crates源
+进入~/.cargo文件夹，编辑config文件
+#+BEGIN_SRC
+[source.crates-io]
+registry = "https://github.com/rust-lang/crates.io-index"
+replace-with = "ustc"
+[source.ustc]
+registry = "https://mirrors.ustc.edu.cn/crates.io-index"
+#+END_SRC
+
 * ownership
 ownership rules:
 + Each value in Rust has an owner.
