@@ -1,0 +1,6 @@
+
+查看gcc或g++中预定义的宏
+#+BEGIN_SRC
+gcc -dM -E -< /dev/null
+g++ -dM -e -< /dev/null
+#+END_SRC
