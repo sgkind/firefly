@@ -1,0 +1,26 @@
+** 目标文件
+一个目标文件包含如下五类信息：
++ 头信息: 关于文件的整体信息，诸如代码大小，翻译成该目标文件的源文件名称和创建日期
++ 目标代码: 由编译器或汇编器产出的二进制指令和数据
++ 重定位信息: 目标代码中的一个位置列表，链接器在修改目标代码的地址时会对它进行调整
++ 符号: 该模块中定义的全局符号，以及从其他模块导入的或者由链接器定义的符号
++ 调试信息: 目标代码中与链接无关但会被调试器使用到的其他信息。包括源代码文件和行号信息、本地符号、被目标代码使用的数据结构描述信息(如C语言数据结构定义)
+
+选项 -rdynamic 用来通知链接器将所有符号添加到动态符号表中
+（目的是能够通过使用 dlopen 来实现向后跟踪）
+
+
+-rdynamic
+Pass the flag ‘-export-dynamic’ to the ELF linker, on targets that support
+it. This instructs the linker to add all symbols, not only used ones, to the
+dynamic symbol table. This option is needed for some uses of dlopen or to
+allow obtaining backtraces from within a program.
+
+
+[What does the /ALTERNATENAME linker switch do? - The Old New Thing (microsoft.com)](https://devblogs.microsoft.com/oldnewthing/20200731-00/?p=104024)
+
+```flowchart
+
+```
+
+
