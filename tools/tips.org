@@ -1,6 +1,68 @@
 #+TITLE: tips
 #+AUTHOR: sgkind
 
+* CMakeLists
+#+BEGIN_SRC
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
+set(CMAKE_VERBOSE_MAKEFILE on)
+#+END_SRC
+
+** 项目模版
+*** 项目架构
+#+BEGIN_SRC
+.
+├── CMakeLists.txt
+├── build
+├── include
+│   └── add.h
+└── src
+    ├── add.cpp
+    └── main.cpp
+#+END_SRC
+
+CMakeLists.txt
+#+BEGIN_SRC
+cmake_minimum_required(VERSION 3.15)
+
+project(test LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED true)
+
+file(GLOB_RECURSE SOURCE_FILE ${CMAKE_SOURCE_DIR}/src/*.cpp)
+
+add_executable(test ${SOURCE_FILE})
+
+target_include_directories(test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include)
+
+#target_link_libraries(test )
+install(TARGETS test DESTINATION ${PROJECT_SOURCE_DIR}/bin)
+#+END_SRC
+
+add.h
+#+BEGIN_SRC
+#ifndef ADD_H_
+#define ADD_H_
+
+int add(int a, int b);
+
+#endif
+#+END_SRC
+
+main.cpp
+#+BEGIN_SRC
+#include <iostream>
+
+#include "add.h"
+
+int main(int argc, char *argv[]) {
+    std::cout << add(1, 2) << std::endl;
+    return 0;
+}
+#+END_SRC
+
 * vscode
 ** 配置
 1. 修改右侧预览框的大小 
