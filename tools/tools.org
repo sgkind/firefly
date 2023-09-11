@@ -6,3 +6,23 @@
 top -H -p <pid>
 #+END_SRC
 
+* tcpdump
+tcpdump选项可以分为四大类：
++ 控制tcpdump程序行为
++ 控制数据怎么显示
++ 控制显示什么数据
++ 过滤命令
+
+** 控制程序行为
+*** 控制捕获报文的数量
+#+BEGIN_SRC shell
+$ sudo tcpdump -c 10
+#+END_SRC
+
+*** 指定端口
+#+BEGIN_SRC shell
+$ sudo tcpdump -i enp2s0
+#+END_SRC
+
+* otool
+macos下可以查看可执行文件的相关信息
